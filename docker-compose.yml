@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  postgres-db:
+    image: postgres:18-alpine
+    container_name: hotel_management_db
+    environment:
+      POSTGRES_USER: ADMIN0107
+      POSTGRES_PASSWORD: ADMIN010718
+      POSTGRES_DB: hotel_db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql
+    restart: unless-stopped
+
+volumes:
+  pg_data:
