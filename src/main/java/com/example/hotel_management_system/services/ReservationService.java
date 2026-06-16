@@ -1,5 +1,7 @@
 package com.example.hotel_management_system.services;
 
+import com.example.hotel_management_system.exceptions.ResourceNotFoundException;
+import com.example.hotel_management_system.exceptions.ResourceNotValidException;
 import com.example.hotel_management_system.model.entities.*;
 import com.example.hotel_management_system.repositories.ReservationRepository;
 import com.example.hotel_management_system.repositories.RoomRepository;
@@ -24,12 +26,17 @@ public class ReservationService {
     public Reservation createReservation(UUID userId, List<Long> roomIds, java.time.LocalDate checkIn, java.time.LocalDate checkOut) {
         // 1. Validar usuario
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("No se puede crear la reserva porque el usuario no existe."));
 
         // 2. Validar y obtener habitaciones
         List<Room> rooms = roomRepository.findAllById(roomIds);
-        if (rooms.isEmpty()) {
-            throw new RuntimeException("Debe seleccionar al menos una habitación válida");
+        for (Long roomId : roomIds) {
+            Room room = roomRepository.findById(roomId)
+                    .orElseThrow(() -> new ResourceNotFoundException("La habitación con ID " + roomId + " no existe."));
+
+            if (room.getStatus() != RoomStatus.AVAILABLE) {
+                throw new ResourceNotValidException("La habitación número " + room.getRoomNumber() + " no está disponible.");
+            }
         }
 
         // Verificar que todas estén disponibles
@@ -41,8 +48,7 @@ public class ReservationService {
         // 3. Calcular noches de estadía
         long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
         if (nights <= 0) {
-            throw new RuntimeException("La fecha de salida debe ser posterior a la de entrada");
-        }
+            throw new ResourceNotValidException("La fecha de check-in no puede ser posterior a la de check-out.");        }
 
         // 4. Calcular precio total (Suma de precios por noche de cada habitación * número de noches)
         BigDecimal totalPrice = rooms.stream()

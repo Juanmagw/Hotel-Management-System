@@ -1,5 +1,7 @@
 package com.example.hotel_management_system.services;
 
+import com.example.hotel_management_system.exceptions.ResourceNotFoundException;
+import com.example.hotel_management_system.exceptions.ResourceNotValidException;
 import com.example.hotel_management_system.model.entities.Room;
 import com.example.hotel_management_system.model.entities.RoomStatus;
 import com.example.hotel_management_system.repositories.RoomRepository;
@@ -21,7 +23,7 @@ public class RoomService {
     @Transactional
     public Room updateRoomStatus(Long roomId, RoomStatus newStatus) {
         Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new RuntimeException("Habitación no encontrada"));
+                .orElseThrow(() -> new ResourceNotFoundException("Habitación no encontrada"));
         room.setStatus(newStatus);
         return roomRepository.save(room); // Al estar con @Transactional, Hibernate lo actualiza solo, pero save() es más explícito
     }
