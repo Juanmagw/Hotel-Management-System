@@ -1,5 +1,6 @@
 package com.example.hotel_management_system.services;
 
+import com.example.hotel_management_system.exceptions.ResourceNotFoundException;
 import com.example.hotel_management_system.exceptions.ResourceNotValidException;
 import com.example.hotel_management_system.model.entities.Room;
 import com.example.hotel_management_system.model.entities.RoomStatus;
@@ -79,7 +80,7 @@ public class RoomServiceTest {
     }
 
     @Test
-    @DisplayName("Debería lanzar RoomNotAvailableException cuando se intenta actualizar una habitación que no existe")
+    @DisplayName("Debería lanzar ResourceNotFoundException cuando se intenta actualizar una habitación que no existe")
     void updateRoomStatus_ThrowsException_WhenRoomNotFound() {
         // GIVEN
         Long roomIdInexistente = 99L;
@@ -88,7 +89,7 @@ public class RoomServiceTest {
         when(roomRepository.findById(roomIdInexistente)).thenReturn(Optional.empty());
 
         // WHEN & THEN
-        assertThrows(ResourceNotValidException.class, () -> {
+        assertThrows(ResourceNotFoundException.class, () -> {
             roomService.updateRoomStatus(roomIdInexistente, RoomStatus.OCCUPIED);
         });
 
