@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID> {
     // Spring genera automáticamente: SELECT * FROM users WHERE email = ?
     Optional<User> findByEmail(String email);
+
+    boolean existsByEmail(String email);
 }
