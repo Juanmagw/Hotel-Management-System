@@ -1,13 +1,27 @@
 package com.example.hotel_management_system.model.dtos.request;
 
-import com.example.hotel_management_system.model.entities.Role;
-import lombok.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-// Lo que el cliente envía para registrarse
-@Data @Builder @NoArgsConstructor @AllArgsConstructor
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class UserRequestDTO {
+
+    @NotBlank(message = "El nombre es obligatorio")
     private String name;
+
+    @NotBlank(message = "El email es obligatorio")
+    @Email(message = "El formato del email no es válido")
     private String email;
-    private String password; // Contraseña limpia que viene del formulario
-    private Role role;
+
+    @NotBlank(message = "La contraseña es obligatoria")
+    @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
+    private String password;
 }

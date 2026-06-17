@@ -11,7 +11,8 @@ public interface UserMapper {
 
     // Le decimos que mapee "password" del DTO hacia "passwordHash" de la Entity
     @Mapping(target = "passwordHash", source = "password")
-    @Mapping(target = "id", ignore = true) // El ID lo genera la DB, lo ignoramos al crear
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "role", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     User toEntity(UserRequestDTO dto);
 
