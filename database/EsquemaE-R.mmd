@@ -1,0 +1,52 @@
+erDiagram
+    USERS ||--o{ RESERVATIONS : "hace"
+    ROOM_TYPES ||--o{ ROOMS : "clasifica"
+    RESERVATIONS ||--|{ RESERVATION_ROOMS : "contiene"
+    ROOMS ||--o{ RESERVATION_ROOMS : "es_asignada"
+    RESERVATIONS ||--o| PAYMENTS : "tiene"
+
+    USERS {
+        UUID id PK
+        VARCHAR name
+        VARCHAR email UK
+        VARCHAR password_hash
+        VARCHAR role
+        TIMESTAMP created_at
+    }
+
+    ROOM_TYPES {
+        BIGSERIAL id PK
+        VARCHAR name UK
+        INT capacity
+        DECIMAL price_per_night
+    }
+
+    ROOMS {
+        BIGSERIAL id PK
+        VARCHAR room_number UK
+        BIGINT room_type_id FK
+        VARCHAR status
+    }
+
+    RESERVATIONS {
+        UUID id PK
+        UUID user_id FK
+        DATE check_in_date
+        DATE check_out_date
+        DECIMAL total_price
+        VARCHAR status
+    }
+
+    RESERVATION_ROOMS {
+        UUID reservation_id PK, FK
+        BIGINT room_id PK, FK
+    }
+
+    PAYMENTS {
+        UUID id PK
+        UUID reservation_id FK, UK
+        DECIMAL amount
+        VARCHAR payment_method
+        VARCHAR status
+        TIMESTAMP payment_date
+    }
