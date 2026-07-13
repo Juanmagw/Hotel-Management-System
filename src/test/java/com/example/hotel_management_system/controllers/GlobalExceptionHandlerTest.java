@@ -4,8 +4,6 @@ import com.example.hotel_management_system.exceptions.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -15,18 +13,14 @@ import org.springframework.web.bind.annotation.RestController;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(controllers = {GlobalExceptionHandler.class, GlobalExceptionHandlerTest.TestController.class}, excludeAutoConfiguration = {
-        org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class
-})
 public class GlobalExceptionHandlerTest {
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        // 🛠️ CONFIGURACIÓN STANDALONE: Enlazamos el controlador ficticio con tu Handler real manualmente
         this.mockMvc = MockMvcBuilders.standaloneSetup(new TestController())
-                .setControllerAdvice(new GlobalExceptionHandler()) // 👈 Forzamos a que use tu Handler
+                .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
@@ -69,7 +63,7 @@ public class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("4. UserAlreadyExistsException -> Debería retornar 409 Conflict")
+    @DisplayName("4. ResourceAlreadyExistsException -> Debería retornar 409 Conflict")
     void handleUserAlreadyExists_ShouldReturn409() throws Exception {
         mockMvc.perform(get("/test/conflict")
                         .contentType(MediaType.APPLICATION_JSON))
@@ -80,7 +74,18 @@ public class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("5. Exception Genérica -> Debería retornar 500 Internal Server Error")
+    @DisplayName("5. AccessDeniedException -> Debería retornar 403 Forbidden")
+    void handleAccessDenied_ShouldReturn403() throws Exception {
+        mockMvc.perform(get("/test/forbidden")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.error").value("Forbidden"))
+                .andExpect(jsonPath("$.message").value("Acceso denegado de prueba"));
+    }
+
+    @Test
+    @DisplayName("6. Exception Genérica -> Debería retornar 500 Internal Server Error")
     void handleGenericException_ShouldReturn500() throws Exception {
         mockMvc.perform(get("/test/internal-error")
                         .contentType(MediaType.APPLICATION_JSON))
@@ -90,7 +95,6 @@ public class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.message").value("Ocurrió un error inesperado: Fallo crítico simulado"));
     }
 
-    // --- CONTROLADOR FICTICIO (DUMMY) PARA PROPAGAR LAS EXCEPCIONES ---
     @RestController
     static class TestController {
 
@@ -112,6 +116,11 @@ public class GlobalExceptionHandlerTest {
         @GetMapping("/test/conflict")
         public void throwConflict() {
             throw new ResourceAlreadyExistsException("El email ya se encuentra registrado");
+        }
+
+        @GetMapping("/test/forbidden")
+        public void throwForbidden() {
+            throw new org.springframework.security.access.AccessDeniedException("Acceso denegado de prueba");
         }
 
         @GetMapping("/test/internal-error")

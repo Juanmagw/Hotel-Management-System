@@ -1,8 +1,10 @@
 package com.example.hotel_management_system.services;
 
-import com.example.hotel_management_system.exceptions.ResourceNotValidException;
-import com.example.hotel_management_system.model.dtos.request.LoginRequestDTO;
-import com.example.hotel_management_system.model.dtos.response.LoginResponseDTO;
+
+import com.example.hotel_management_system.config.security.JwtService;
+import com.example.hotel_management_system.exceptions.AuthException;
+import com.example.hotel_management_system.model.dtos.request.AuthRequestDTO;
+import com.example.hotel_management_system.model.dtos.response.AuthResponseDTO;
 import com.example.hotel_management_system.model.entities.User;
 import com.example.hotel_management_system.repositories.UserRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -11,85 +13,106 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Optional;
-import java.util.UUID;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.*;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class AuthServiceTest {
+class AuthServiceTest {
 
     @Mock
     private UserRepository userRepository;
 
     @Mock
-    private PasswordEncoder passwordEncoder; // 👈 Mockeamos el encoder
+    private JwtService jwtService;
+
+    @Mock
+    private AuthenticationManager authenticationManager;
 
     @InjectMocks
-    private AuthService authService;
+    private AuthService authService; // Inyecta automáticamente los 3 mocks de arriba aquí dentro
 
     @Test
-    @DisplayName("Debería iniciar sesión correctamente cuando las credenciales son válidas")
-    void login_Success() {
+    @DisplayName("Login Exitoso -> Debería retornar AuthResponseDTO con el token JWT")
+    void login_ShouldReturnAuthResponse_WhenCredentialsAreValid() {
         // GIVEN
-        LoginRequestDTO request = LoginRequestDTO.builder()
-                .email("carlos@email.com")
-                .password("password123")
-                .build();
+        AuthRequestDTO request = new AuthRequestDTO("diego@email.com", "password123");
+        User mockUser = new User(); // Asume que tu entidad User tiene sus setters o builder
+        mockUser.setEmail("diego@email.com");
+        String mockJwt = "eyJhbGciOiJIUzI1NiJ9.tokenSimulado.123";
 
-        User usuarioExistente = User.builder()
-                .id(UUID.randomUUID())
-                .name("Carlos")
-                .email("carlos@email.com")
-                .passwordHash("2a$10$ClaveHashEncriptadaDeEjemplo...") // Coincide
-                .build();
+        // Simulamos que la autenticación pasa sin lanzar excepciones
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(mock(Authentication.class));
 
-        when(userRepository.findByEmail("carlos@email.com")).thenReturn(Optional.of(usuarioExistente));
+        // Simulamos la búsqueda en la base de datos
+        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(mockUser));
 
-        // Simulamos que el encoder dice "Sí, coinciden"
-        when(passwordEncoder.matches("password123", usuarioExistente.getPasswordHash())).thenReturn(true);
+        // Simulamos la generación del token
+        when(jwtService.generateToken((UserDetails) mockUser)).thenReturn(mockJwt);
 
         // WHEN
-        LoginResponseDTO resultado = authService.login(request); // 👈 Cambiado a LoginResponseDTO
+        AuthResponseDTO response = authService.login(request);
 
         // THEN
-        assertThat(resultado, is(notNullValue()));
-        assertThat(resultado.getToken(), startsWithIgnoringCase("fake-jwt-token-")); // Validamos que genere el token
-        assertThat(resultado.getUserId(), is(usuarioExistente.getId()));
-        assertThat(resultado.getEmail(), is("carlos@email.com"));
-        assertThat(resultado.getName(), is("Carlos"));
-        verify(userRepository, times(1)).findByEmail("carlos@email.com");
-        verify(passwordEncoder, times(1)).matches("password123", usuarioExistente.getPasswordHash());
+        assertNotNull(response);
+        assertEquals(mockJwt, response.getToken());
+        assertEquals("Bearer", response.getType());
+
+        // Verificaciones de comportamiento: Nos aseguramos de que se llamó a cada metodo una vez
+        verify(authenticationManager, times(1)).authenticate(any(UsernamePasswordAuthenticationToken.class));
+        verify(userRepository, times(1)).findByEmail(request.getEmail());
+        verify(jwtService, times(1)).generateToken((UserDetails) mockUser);
     }
 
     @Test
-    @DisplayName("Debería lanzar IllegalArgumentException cuando la contraseña es incorrecta")
-    void login_ThrowsException_WhenPasswordIsIncorrect() {
+    @DisplayName("Login Fallido -> Debería lanzar InvalidCredentialsException si las credenciales son erróneas")
+    void login_ShouldThrowInvalidCredentialsException_WhenAuthenticationFails() {
         // GIVEN
-        LoginRequestDTO request = LoginRequestDTO.builder()
-                .email("carlos@email.com")
-                .password("clave_erronea") // No va a coincidir
-                .build();
+        AuthRequestDTO request = new AuthRequestDTO("incorrecto@email.com", "wrongpass");
 
-        User usuarioExistente = User.builder()
-                .id(UUID.randomUUID())
-                .email("carlos@email.com")
-                .passwordHash("$2a$10$ClaveHashEncriptadaDeEjemplo...") // La real
-                .build();
-
-        when(userRepository.findByEmail("carlos@email.com")).thenReturn(Optional.of(usuarioExistente));
-
-        // Simulamos que el encoder dice "No, no coinciden"
-        when(passwordEncoder.matches("clave_erronea", usuarioExistente.getPasswordHash())).thenReturn(false);
+        // Forzamos al AuthenticationManager a lanzar una excepción típica de Spring Security
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenThrow(new BadCredentialsException("Bad credentials"));
 
         // WHEN & THEN
-        assertThrows(ResourceNotValidException.class, () -> {
+        AuthException exception = assertThrows(AuthException.class, () -> {
             authService.login(request);
         });
+
+        assertEquals("El email o la contraseña son incorrectos", exception.getMessage());
+
+        // Aseguramos que el flujo se corta inmediatamente: NUNCA se debe buscar en BD ni generar token
+        verify(userRepository, never()).findByEmail(anyString());
+        verify(jwtService, never()).generateToken((org.springframework.security.core.userdetails.UserDetails) any(User.class));
+    }
+
+    @Test
+    @DisplayName("Login Fallido (Caso borde) -> Debería lanzar excepción si autentica pero el usuario desapareció de la BD")
+    void login_ShouldThrowException_WhenUserNotFoundInDbAfterAuthentication() {
+        // GIVEN
+        AuthRequestDTO request = new AuthRequestDTO("fantasma@email.com", "password123");
+
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(mock(Authentication.class));
+
+        // El mánager dice que sí, pero la BD devuelve vacío (un borrado concurrente, por ejemplo)
+        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
+
+        // WHEN & THEN
+        AuthException exception = assertThrows(AuthException.class, () -> {
+            authService.login(request);
+        });
+
+        assertEquals("Usuario no encontrado", exception.getMessage());
+        verify(jwtService, never()).generateToken((UserDetails) any(User.class));
     }
 }

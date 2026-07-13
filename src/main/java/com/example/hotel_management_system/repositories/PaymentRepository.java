@@ -9,6 +9,8 @@ import java.util.UUID;
 
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
-    // Busca el pago asociado a un ID de reserva
+
     Optional<Payment> findByReservationId(UUID reservationId);
+
+    boolean existsByReservationId(UUID reservationId);
 }
